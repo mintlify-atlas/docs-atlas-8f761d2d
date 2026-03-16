@@ -1,0 +1,105 @@
+{
+  "projectType": "saas",
+  "projectName": "Squiggle",
+  "projectDescription": "A minimal, real-time multiplayer draw & guess game where players create private rooms, take turns drawing, and race to guess the word.",
+  "theme": "almond",
+  "primaryColor": "#94cb04",
+  "lightColor": "#545454",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Overview",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Setup",
+            "pages": [
+              "setup/firebase",
+              "setup/environment-variables",
+              "setup/word-bank"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "How to Play",
+        "groups": [
+          {
+            "group": "Gameplay",
+            "pages": [
+              "gameplay/overview",
+              "gameplay/creating-a-room",
+              "gameplay/drawing",
+              "gameplay/guessing",
+              "gameplay/scoring"
+            ]
+          },
+          {
+            "group": "Host Controls",
+            "pages": [
+              "host/room-settings",
+              "host/custom-words",
+              "host/managing-the-game"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Self-Hosting",
+        "groups": [
+          {
+            "group": "Deployment",
+            "pages": [
+              "self-hosting/overview",
+              "self-hosting/project-structure",
+              "self-hosting/firestore-rules",
+              "self-hosting/word-bank-security"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/data-model",
+              "reference/api-routes",
+              "reference/configuration"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Real-time canvas synced across all players via Firebase Firestore",
+    "Private rooms with 6-character shareable codes",
+    "Host controls for rounds, draw time, hints, word count, and max players",
+    "Custom word support per room",
+    "Server-side word bank — words never exposed to clients",
+    "Score system with guess-order bonuses and drawer rewards",
+    "Progressive hints that reveal letters over time",
+    "Emoji reactions, vote-to-skip, and live chat"
+  ],
+  "publicApiSurface": [
+    "POST /api/game { action: 'getWordChoices', categories, customWords, wordCount }",
+    "POST /api/game { action: 'selectWord', roomId, word, drawerId, drawTime }",
+    "POST /api/game { action: 'guess', roomId, playerId, playerName, guess, roundStartedAt }",
+    "POST /api/game { action: 'revealHint', roomId, hintIndex }",
+    "POST /api/game { action: 'endRound', roomId }",
+    "POST /api/game { action: 'deleteRoom', roomId }",
+    "POST /api/game { action: 'getWord', roomId, playerId }",
+    "createOrJoinRoom(roomId, player) — lib/gameLogic.ts",
+    "startGame(roomId, players, settings) — lib/gameLogic.ts",
+    "selectWord(roomId, word, drawerId) — lib/gameLogic.ts",
+    "endRound(roomId) — lib/gameLogic.ts",
+    "nextTurn(roomId, room, players) — lib/gameLogic.ts",
+    "sendChatMessage(roomId, player, text, secretWord, roundStartedAt, isDrawing) — lib/gameLogic.ts",
+    "revealHintLetter(word, currentMask) — lib/gameLogic.ts",
+    "getWordMask(word) — lib/words.ts"
+  ]
+}
