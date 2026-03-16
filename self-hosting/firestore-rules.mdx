@@ -1,0 +1,179 @@
+---
+title: "Firestore security rules"
+description: "Understanding and customizing Squiggle's Firestore security rules."
+---
+
+Squiggle's Firestore rules are in `firestore.rules` at the project root. They enforce two things: structural validity (required fields, correct types, sensible value ranges) and anti-cheat protections (correct guesses and score changes can only come from the server).
+
+## Full rules
+
+```javascript
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function isValidRoom() {
+      return hasRequiredFields(['hostId', 'phase', 'createdAt', 'lastActive']) &&
+             request.resource.data.phase in ['lobby', 'choosing', 'drawing', 'reveal', 'ended'] &&
+             request.resource.data.hostId is string &&
+             request.resource.data.createdAt is number &&
+             request.resource.data.lastActive is number;
+    }
+
+    function isValidPlayer() {
+      return hasRequiredFields(['name', 'avatarId', 'score', 'streak', 'connected', 'isHost', 'hasGuessed']) &&
+             request.resource.data.name is string &&
+             request.resource.data.name.size() > 0 &&
+             request.resource.data.name.size() <= 20 &&
+             request.resource.data.avatarId is string &&
+             request.resource.data.score is number &&
+             request.resource.data.score >= 0 &&
+             // Prevent score manipulation on updates only (resource is null on create)
+             (
+               resource == null ||
+               (request.resource.data.score - resource.data.score) <= 500
+             ) &&
+             request.resource.data.streak is number &&
+             request.resource.data.streak >= 0 &&
+             request.resource.data.connected is bool &&
+             request.resource.data.isHost is bool &&
+             request.resource.data.hasGuessed is bool;
+    }
+
+    function isValidChatMessage() {
+      return hasRequiredFields(['text', 'senderId', 'senderName', 'isSystem', 'isCorrect', 'timestamp']) &&
+             request.resource.data.text is string &&
+             request.resource.data.text.size() > 0 &&
+             request.resource.data.text.size() <= 200 &&
+             request.resource.data.senderId is string &&
+             request.resource.data.senderName is string &&
+             request.resource.data.isSystem is bool &&
+             request.resource.data.isCorrect is bool &&
+             request.resource.data.timestamp is number &&
+             // Clients cannot fake a correct guess — isCorrect is set server-side only
+             request.resource.data.isCorrect == false;
+    }
+
+    function isValidCanvas() {
+      return hasRequiredFields(['lastUpdate']) &&
+             request.resource.data.lastUpdate is number;
+    }
+
+    // Word bank is seeded via admin SDK — clients must never read it
+    match /wordBank/{category} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    match /rooms/{roomId} {
+      allow read: if true;
+      allow create: if isValidRoom();
+      allow update: if isValidRoom();
+      allow delete: if true;
+
+      match /players/{playerId} {
+        allow read: if true;
+        allow create: if isValidPlayer();
+        allow update: if isValidPlayer();
+        allow delete: if true;
+      }
+
+      match /chat/{messageId} {
+        allow read: if true;
+        allow create: if isValidChatMessage();
+        allow update: if false;
+        allow delete: if true;
+      }
+
+      match /canvas/{canvasId} {
+        allow read: if true;
+        allow create: if isValidCanvas();
+        allow update: if isValidCanvas();
+        allow delete: if true;
+      }
+
+      match /secrets/{secretId} {
+        allow read: if false;
+        allow write: if false;
+      }
+    }
+  }
+}
+```
+
+## Collection rules explained
+
+### `/wordBank/{category}`
+
+Read and write are both hard-blocked for all clients. The word bank is only ever written by the seed script (`npm run seed`) and read by the `/api/game` route — both of which use the Firebase Admin SDK, which bypasses Firestore rules entirely.
+
+### `/rooms/{roomId}`
+
+Readable by all clients without restriction. Create and update require the document to pass `isValidRoom()`: the `hostId`, `phase`, `createdAt`, and `lastActive` fields must be present, `phase` must be one of the five valid values, and the timestamp fields must be numbers.
+
+Delete is unrestricted — the host's client triggers room cleanup by calling the `deleteRoom` API action, which uses the Admin SDK's `recursiveDelete`.
+
+### `/rooms/{roomId}/players/{playerId}`
+
+Readable by all. Create and update require the document to pass `isValidPlayer()`, which enforces:
+
+- `name` must be a non-empty string of 20 characters or fewer
+- `score` must be a non-negative number
+- **Score cap** — on updates (not creates), the score increase per write is capped at +500. This matches the maximum first-guess bonus (`GUESS_SCORES[0] = 500`) and prevents a client from inflating their own score in a single write.
+- `streak` must be a non-negative number
+- `connected`, `isHost`, and `hasGuessed` must be booleans
+
+### `/rooms/{roomId}/chat/{messageId}`
+
+Readable by all. Create requires `isValidChatMessage()`. The key anti-cheat constraint is:
+
+```javascript
+request.resource.data.isCorrect == false
+```
+
+Clients can only write chat messages where `isCorrect` is `false`. Correct-guess messages (with `isCorrect: true`, `pointsEarned`, and `guessOrder`) are written exclusively by the `/api/game` server route using the Admin SDK. This means a client cannot fake a correct guess in the chat.
+
+Update is blocked entirely — chat messages are immutable once written.
+
+### `/rooms/{roomId}/canvas/{canvasId}`
+
+Readable and writable by all clients, provided the document includes a `lastUpdate` number. The drawing client writes canvas state here; all other clients read it via `onSnapshot`.
+
+### `/rooms/{roomId}/secrets/{secretId}`
+
+Read and write are both hard-blocked for all clients. The secret word is written by `selectWord` and deleted by `endRound`, both server-side operations using the Admin SDK.
+
+<Warning>
+  Never loosen the rules for `wordBank/**` or `secrets/**`. If clients can read either collection, the word is exposed before the round ends and the anti-cheat model breaks entirely.
+</Warning>
+
+## Deploying the rules
+
+```bash
+npx firebase login
+npx firebase use your-project-id
+npx firebase deploy --only firestore:rules
+```
+
+The `firebase.json` file tells the Firebase CLI to look for rules at `firestore.rules`:
+
+```json
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}
+```
+
+## Customizing the rules
+
+If you add new collections or need to restrict room access (for example, requiring a password), edit `firestore.rules` and redeploy. Common changes:
+
+- **Password-protect rooms** — check `request.resource.data.password` against a stored hash, or add a custom claim via Authentication
+- **Rate-limit chat** — add a time-based check on `request.time` to prevent message spam
+- **Stricter name validation** — extend `isValidPlayer()` to block specific characters or reserved names

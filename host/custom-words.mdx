@@ -1,0 +1,49 @@
+---
+title: "Custom words"
+description: "Add your own words to the drawing pool for a room."
+---
+
+Custom words let you tailor the drawing pool to your group. You might add inside jokes, themed vocabulary for a specific event, or anything else you want players to draw.
+
+## Adding custom words
+
+In the **Host Settings** panel (lobby only), click **Custom Words** to expand the input area. Enter your words as a comma-separated list:
+
+```text
+pizza, unicorn, Eiffel Tower, submarine, rubber duck
+```
+
+You can type as many words as you like. Words are trimmed of leading and trailing whitespace automatically.
+
+<Tip>
+Multi-word phrases work fine. "Eiffel Tower" is treated as a single entry and the space is preserved in the word mask shown to guessers.
+</Tip>
+
+## How custom words enter the pool
+
+Custom words are mixed into the same pool as words from the selected Firestore word bank categories. When the game fetches word choices for a drawer, it samples from the combined pool. Each custom word is assigned the difficulty label `"custom"`.
+
+The **Word choices** setting (default: 3) determines how many options the drawer sees per turn. Custom words compete alongside category words for those slots — there is no guaranteed frequency.
+
+## Scope and persistence
+
+<Warning>
+Custom words are per-room and per-session. They are not saved to the database and will be lost if you refresh the page or start a new game session.
+</Warning>
+
+- Custom words apply only to the current room.
+- They reset when the host clears the field or starts a new session.
+- Other rooms are not affected.
+
+## Examples
+
+| Use case | Example words |
+|---|---|
+| Food theme | `sushi, croissant, tiramisu, bubble tea` |
+| Office party | `spreadsheet, coffee machine, standing desk` |
+| Movie night | `plot twist, cliffhanger, slow motion` |
+| Geography quiz | `Amazon river, Mount Fuji, Great Barrier Reef` |
+
+<Note>
+Words are matched case-insensitively when guessing. "Eiffel Tower", "eiffel tower", and "EIFFEL TOWER" all count as correct.
+</Note>

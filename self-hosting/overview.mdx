@@ -1,0 +1,95 @@
+---
+title: "Self-hosting overview"
+description: "Deploy your own instance of Squiggle on any platform that runs Next.js."
+---
+
+Squiggle is a standard Next.js 15 application. You can deploy it anywhere Next.js runs — Vercel, Railway, Fly.io, a VPS, or your own server.
+
+## Prerequisites
+
+- Node.js 18 or later
+- npm
+- A Firebase project with Firestore enabled in Native mode
+
+## Deployment considerations
+
+Before you deploy, there are a few things to understand about how Squiggle works in production.
+
+**In-memory word store** — The `/api/game` route stores the active word in a server-side `Map`. This resets whenever the server process restarts (cold start, redeployment, or serverless function recycling). After a cold start, the server rehydrates the word from `rooms/{roomId}/secrets/word` in Firestore, so active rounds are not permanently broken — but there is a brief window where a guess or hint request may fail while the rehydration fetch is in flight.
+
+<Warning>
+  The in-memory word store is not suitable for high-availability or auto-scaling deployments where multiple server instances run in parallel. Each instance has its own `Map`, so a request routed to a different instance will always trigger a rehydration round-trip. For production use, consider replacing the `Map` with Redis or a similar key-value store — this is noted in the source code at `app/api/game/route.ts`.
+</Warning>
+
+**Server-only environment variables** — The `FIREBASE_ADMIN_*` variables contain your service account private key. They must be set as server-side secrets and must never be prefixed with `NEXT_PUBLIC_`. If these are exposed to the browser, your Firebase project is compromised.
+
+**Firestore rules** — The default rules block all client reads on the word bank and secrets collections. Deploy the rules before you open the game to players.
+
+## Deployment steps
+
+<Steps>
+  <Step title="Clone and install">
+    ```bash
+    git clone https://github.com/thor-op/squiggle.git
+    cd squiggle
+    npm install
+    ```
+  </Step>
+
+  <Step title="Configure Firebase">
+    Create a Firebase project and enable Firestore in Native mode. See [Firebase setup](/setup/firebase) for the full walkthrough.
+  </Step>
+
+  <Step title="Set environment variables">
+    Copy the example file and fill in your values:
+
+    ```bash
+    cp .env.example .env.local
+    ```
+
+    See [Environment variables](/setup/environment-variables) for a description of every variable.
+  </Step>
+
+  <Step title="Deploy Firestore rules">
+    ```bash
+    npx firebase login
+    npx firebase use your-project-id
+    npx firebase deploy --only firestore:rules
+    ```
+
+    This deploys the rules from `firestore.rules` in the project root. See [Firestore security rules](/self-hosting/firestore-rules) for a full explanation of what each rule does.
+  </Step>
+
+  <Step title="Seed the word bank">
+    Words are stored in Firestore, not in the client bundle. Copy the example seed script and fill in your words:
+
+    ```bash
+    cp scripts/seed-words.example.ts scripts/seed-words.ts
+    # edit scripts/seed-words.ts with your word bank
+    npm run seed
+    ```
+
+    See [Word bank](/setup/word-bank) for full instructions. `scripts/seed-words.ts` is gitignored — your actual words stay private.
+  </Step>
+
+  <Step title="Deploy to your platform">
+    Squiggle builds and runs like any Next.js app.
+
+    **Vercel**
+
+    ```bash
+    npx vercel --prod
+    ```
+
+    Set all environment variables in the Vercel dashboard under **Project → Settings → Environment Variables**. Add the `FIREBASE_ADMIN_*` variables as **Server** variables only — do not expose them to the browser or preview environments unless you intend to.
+
+    **Other platforms**
+
+    ```bash
+    npm run build
+    npm run start
+    ```
+
+    Ensure the `FIREBASE_ADMIN_*` environment variables are available to the server process at runtime.
+  </Step>
+</Steps>

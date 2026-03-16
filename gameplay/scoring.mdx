@@ -1,0 +1,58 @@
+---
+title: "Scoring"
+description: "How points are calculated in Squiggle."
+---
+
+Points are awarded for both guessing correctly and for drawing a word that others can guess. Scores accumulate across all rounds and are displayed on the final leaderboard.
+
+## Guesser points
+
+The faster you guess, the more points you earn. Points are based on the order in which players guess correctly during a single round:
+
+| Guess order | Points |
+|---|---|
+| 1st | 500 |
+| 2nd | 400 |
+| 3rd | 350 |
+| 4th | 300 |
+| 5th | 250 |
+| 6th | 200 |
+| 7th | 175 |
+| 8th | 150 |
+| 9th | 125 |
+| 10th or later | 100 |
+
+<Note>
+The minimum score for a correct guess is always 100 points, regardless of how many players have already guessed.
+</Note>
+
+## Drawer bonus
+
+The drawer earns **+50 points** each time any player guesses correctly during their turn. If 4 players guess correctly, the drawer earns 200 bonus points for that turn.
+
+## Streaks
+
+Each player has a streak counter that increments by 1 for every correct guess. Streaks are tracked for display purposes and reset to 0 at the start of each new game alongside scores.
+
+## Score resets
+
+All scores and streaks are reset to **0** when the host starts a new game. Scores are not carried between separate game sessions.
+
+## Final leaderboard
+
+When the last round ends, the game moves to the `ended` phase and displays the final leaderboard, ranked by total score. The host can start a new game directly from this screen.
+
+## Scoring example
+
+Suppose 4 players are guessing during a single drawing turn:
+
+| Event | Player | Points |
+|---|---|---|
+| 1st correct guess | Alice | +500 |
+| Drawer bonus | Bob (drawer) | +50 |
+| 2nd correct guess | Carol | +400 |
+| Drawer bonus | Bob (drawer) | +50 |
+| 3rd correct guess | Dave | +350 |
+| Drawer bonus | Bob (drawer) | +50 |
+
+At the end of this turn: Alice 500, Carol 400, Dave 350, Bob 150 (drawer bonuses only).

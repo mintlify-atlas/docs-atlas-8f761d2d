@@ -1,0 +1,72 @@
+---
+title: "Drawing"
+description: "How to draw on the shared canvas as the active drawer."
+---
+
+When it's your turn, you become the active drawer. Your job is to illustrate the chosen word so that the other players can guess it — without typing or saying the word.
+
+## Choosing a word
+
+Before you draw, you must pick a word. The game presents you with a set of word choices (default: 3, configurable by the host). You have **15 seconds** to select one.
+
+<Note>
+If you don't pick within 15 seconds, a word is selected for you automatically.
+</Note>
+
+Other players see the message "[Your Name] is choosing a word" and a masked placeholder (underscores) that hints at the word length. They do not see the word choices.
+
+## The drawing phase
+
+Once you select a word, the drawing phase starts. You can see the full word at the top of the screen. Everyone else sees only the masked version, for example:
+
+```
+_ _ _ _ _ _ _ _ _ _   (elephant)
+_ _ _ _ _ _   _ _ _ _   (eiffel tower — spaces are preserved)
+```
+
+You have a countdown timer (default: **80 seconds**) visible to all players. Draw as clearly as you can before time runs out.
+
+## Drawing tools
+
+The toolbar appears at the bottom of the canvas when it is your turn. Other players see the canvas in read-only mode.
+
+| Tool | Description |
+|---|---|
+| **Pen** | Freehand stroke with the selected color and size. |
+| **Eraser** | Remove parts of your drawing. |
+| **Fill bucket** | Flood-fill a region with the selected color. |
+| **Line** | Draw a straight line between two points. |
+| **Rectangle** | Draw a hollow rectangle. |
+| **Circle** | Draw a hollow ellipse. |
+
+### Brush size
+
+Use the size slider (2 px – 40 px) to adjust the stroke width. The current size is shown next to the slider.
+
+### Color palette
+
+Choose from 18 preset colors or open the color picker for any custom color. Selecting a color while the eraser is active automatically switches back to the pen tool.
+
+### Undo and clear
+
+- **Undo** (`↺`) — removes the last stroke.
+- **Clear** (`🗑`) — wipes the entire canvas.
+
+Both actions are synced to all players in real time.
+
+## Real-time sync
+
+Canvas strokes are pushed to all connected players as you draw. Active strokes update approximately every 100 ms; completed strokes are written immediately when you release the mouse or lift your finger.
+
+<Info>
+The canvas supports touch input, so you can draw on a mobile device or tablet.
+</Info>
+
+## Vote to skip
+
+Any player (including you) can vote to skip the current turn. If enough players vote to skip, the round ends early and moves to the reveal phase. You cannot stop a skip vote once it reaches the threshold.
+
+## What you cannot do
+
+- You cannot type in the chat while you are drawing. The input is disabled and shows "You are drawing..."
+- You cannot see other players' guesses in the chat during your drawing turn — this is intentional to prevent you from reacting to close guesses.

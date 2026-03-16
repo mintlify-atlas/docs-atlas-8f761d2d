@@ -1,0 +1,59 @@
+---
+title: "Firebase setup"
+description: "Create and configure a Firebase project for Squiggle."
+---
+
+Squiggle uses Firebase Firestore for real-time game state and the Firebase Admin SDK for server-side word handling. You need to configure both.
+
+<Warning>
+  Admin SDK credentials (`FIREBASE_ADMIN_*`) must never be exposed to the browser. Keep them in `.env.local` and never prefix them with `NEXT_PUBLIC_`.
+</Warning>
+
+<Steps>
+  <Step title="Create a Firebase project">
+    1. Go to [console.firebase.google.com](https://console.firebase.google.com)
+    2. Click **Add project** and follow the setup wizard
+    3. You do not need to enable Google Analytics unless you want it
+  </Step>
+
+  <Step title="Enable Firestore in Native mode">
+    1. In your project, go to **Build → Firestore Database**
+    2. Click **Create database**
+    3. Select **Start in production mode** (Squiggle includes its own security rules)
+    4. Choose a region close to your users
+    5. Make sure the mode is set to **Native mode** — not Datastore mode
+  </Step>
+
+  <Step title="Get the client config">
+    1. Go to **Project Settings** (gear icon) → **General**
+    2. Scroll to **Your apps** and click **Add app → Web** (`</>`)
+    3. Register the app with a nickname (e.g. `squiggle-web`)
+    4. Copy the `firebaseConfig` object — you'll use these values for the `NEXT_PUBLIC_FIREBASE_*` variables
+
+    The config contains these fields:
+
+    | Variable | Config field |
+    |---|---|
+    | `NEXT_PUBLIC_FIREBASE_API_KEY` | `apiKey` |
+    | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | `authDomain` |
+    | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | `projectId` |
+    | `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | `storageBucket` |
+    | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | `messagingSenderId` |
+    | `NEXT_PUBLIC_FIREBASE_APP_ID` | `appId` |
+    | `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` | `measurementId` (optional) |
+    | `NEXT_PUBLIC_FIREBASE_FIRESTORE_DB` | Custom Firestore DB ID (optional) |
+  </Step>
+
+  <Step title="Get Admin SDK credentials">
+    1. Go to **Project Settings → Service Accounts**
+    2. Click **Generate new private key**
+    3. Download the JSON file — it contains `project_id`, `client_email`, and `private_key`
+    4. Copy these three values into your `.env.local` as the `FIREBASE_ADMIN_*` variables
+
+    The `private_key` value spans multiple lines. When pasting it into `.env.local`, wrap it in double quotes and keep the literal `\n` escape sequences — the app replaces them with real newlines at runtime.
+  </Step>
+</Steps>
+
+<Note>
+  If you want to use a non-default Firestore database (e.g. a named database for staging), set `NEXT_PUBLIC_FIREBASE_FIRESTORE_DB` to your database ID. Leave it blank or omit it to use the default database.
+</Note>

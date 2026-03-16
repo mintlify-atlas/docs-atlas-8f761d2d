@@ -1,0 +1,254 @@
+---
+title: "Data model"
+description: "The Firestore collections and TypeScript types that power Squiggle."
+---
+
+Squiggle uses five Firestore collections arranged under a top-level `rooms` collection and a separate `wordBank` collection. All TypeScript types are defined in `lib/types.ts`.
+
+## Collections overview
+
+| Collection path | Description |
+|---|---|
+| `rooms/{roomId}` | Game room state |
+| `rooms/{roomId}/players/{playerId}` | Players in the room |
+| `rooms/{roomId}/chat/{messageId}` | Chat and guess messages |
+| `rooms/{roomId}/canvas/{canvasId}` | Drawing canvas state |
+| `rooms/{roomId}/secrets/{secretId}` | Active word (admin-only) |
+| `wordBank/{category}` | Word bank (admin-only) |
+
+---
+
+## Room
+
+**Path:** `rooms/{roomId}`
+
+The root document for a game session. All other collections are subcollections of this document.
+
+```typescript
+export type Phase = 'lobby' | 'choosing' | 'drawing' | 'reveal' | 'ended';
+
+export interface Room {
+  id: string;
+  hostId: string;
+  phase: Phase;
+  settings: RoomSettings;
+  currentRound?: CurrentRound;
+  wordChoices?: string[];
+  reveal?: { word: string };
+  votes?: {
+    skip?: Record<string, boolean>;
+  };
+  reactions?: Record<string, { emoji: string; timestamp: number }>;
+  turnOrder?: string[];
+  createdAt: number;
+  lastActive: number;
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | The 6-character room code (document ID) |
+| `hostId` | `string` | Player ID of the host |
+| `phase` | `Phase` | Current game phase |
+| `settings` | `RoomSettings` | Lobby configuration set by the host |
+| `currentRound` | `CurrentRound` | Present during `choosing`, `drawing`, and `reveal` phases |
+| `wordChoices` | `string[]` | Masked word options shown to the drawer during `choosing` |
+| `reveal` | `{ word: string }` | The revealed word shown during the `reveal` phase |
+| `votes.skip` | `Record<string, boolean>` | Player IDs who voted to skip the current drawer |
+| `reactions` | `Record<string, { emoji, timestamp }>` | Active emoji reactions keyed by player ID |
+| `turnOrder` | `string[]` | Fixed player ID order set when the game starts |
+| `createdAt` | `number` | Unix timestamp (ms) when the room was created |
+| `lastActive` | `number` | Unix timestamp (ms) of last room activity |
+
+### Phase values
+
+| Value | Meaning |
+|---|---|
+| `lobby` | Players are joining; host configures settings |
+| `choosing` | The current drawer is selecting a word (15-second timer) |
+| `drawing` | Active drawing round |
+| `reveal` | Round ended; the word is shown to all players (5 seconds) |
+| `ended` | Game over |
+
+---
+
+## RoomSettings
+
+**Embedded in:** `rooms/{roomId}.settings`
+
+```typescript
+export interface RoomSettings {
+  rounds: number;
+  drawTime: number;
+  hints: number;
+  hintInterval: number;
+  wordCount: number;
+  maxPlayers: number;
+  categories: string[];
+  customWords: string;
+  password?: string;
+}
+```
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `rounds` | `number` | `3` | Number of full rounds to play |
+| `drawTime` | `number` | `80` | Seconds the drawer has per turn |
+| `hints` | `number` | `2` | Number of hint letters to reveal during a turn |
+| `hintInterval` | `number` | `20` | Seconds between hint reveals |
+| `wordCount` | `number` | `3` | Number of word choices shown to the drawer |
+| `maxPlayers` | `number` | `8` | Maximum players allowed in the room |
+| `categories` | `string[]` | `['Animals', 'Food', 'Objects']` | Word bank categories to draw from |
+| `customWords` | `string` | `''` | Comma-separated custom words added to the pool |
+| `password` | `string` | — | Optional room password |
+
+---
+
+## CurrentRound
+
+**Embedded in:** `rooms/{roomId}.currentRound`
+
+```typescript
+export interface CurrentRound {
+  drawerId: string;
+  wordMask: string;
+  wordLength: number;
+  startedAt: number;
+  timeLimit: number;
+  roundNumber: number;
+  guessCount: number;
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `drawerId` | `string` | Player ID of the current drawer |
+| `wordMask` | `string` | Underscored word visible to guessers (e.g. `"________"`) |
+| `wordLength` | `number` | Total character count of the word (including spaces) |
+| `startedAt` | `number` | Unix timestamp (ms) when the current phase began |
+| `timeLimit` | `number` | Phase duration in seconds (15 for choosing, `drawTime` for drawing, 5 for reveal) |
+| `roundNumber` | `number` | Current round number (1-indexed) |
+| `guessCount` | `number` | Number of correct guesses so far this turn |
+
+---
+
+## Player
+
+**Path:** `rooms/{roomId}/players/{playerId}`
+
+```typescript
+export interface Player {
+  id: string;
+  name: string;
+  avatarId: string;
+  score: number;
+  streak: number;
+  connected: boolean;
+  isHost: boolean;
+  hasGuessed: boolean;
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Session-generated player ID (document ID) |
+| `name` | `string` | Display name (1–20 characters) |
+| `avatarId` | `string` | Avatar identifier used to render the player's icon |
+| `score` | `number` | Cumulative score for the session |
+| `streak` | `number` | Consecutive correct guesses |
+| `connected` | `boolean` | Whether the player's tab is active |
+| `isHost` | `boolean` | Whether this player controls room settings |
+| `hasGuessed` | `boolean` | Whether this player has guessed correctly in the current turn |
+
+---
+
+## ChatMessage
+
+**Path:** `rooms/{roomId}/chat/{messageId}`
+
+```typescript
+export interface ChatMessage {
+  id: string;
+  text: string;
+  senderId: string;
+  senderName: string;
+  isSystem: boolean;
+  isCorrect: boolean;
+  isGuessOnly: boolean;
+  guessOrder?: number;
+  pointsEarned?: number;
+  roundTimestamp?: number;
+  timestamp: number;
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Firestore-generated document ID |
+| `text` | `string` | Message content (1–200 characters) |
+| `senderId` | `string` | Player ID of the sender, or `"system"` |
+| `senderName` | `string` | Display name of the sender, or `"System"` |
+| `isSystem` | `boolean` | True for join/leave/game-event messages |
+| `isCorrect` | `boolean` | True for correct-guess messages (set server-side only) |
+| `isGuessOnly` | `boolean` | If true, only players who have already guessed see this message |
+| `guessOrder` | `number` | 1-indexed position of this correct guess in the current turn |
+| `pointsEarned` | `number` | Points awarded for this correct guess |
+| `roundTimestamp` | `number` | Seconds elapsed since the turn started when the guess was made |
+| `timestamp` | `number` | Unix timestamp (ms) |
+
+<Note>
+  Firestore rules enforce `isCorrect == false` for client writes. The server sets `isCorrect: true` via the Admin SDK after validating a guess in `/api/game`.
+</Note>
+
+---
+
+## CanvasState
+
+**Path:** `rooms/{roomId}/canvas/main`
+
+There is always exactly one canvas document per room, at the fixed path `canvas/main`.
+
+```typescript
+export interface CanvasState {
+  completedStrokes: string;
+  activeStroke: string | null;
+  clearedAt: number;
+  lastUpdate: number;
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `completedStrokes` | `string` | JSON-serialized array of `Stroke` objects |
+| `activeStroke` | `string \| null` | JSON-serialized in-progress stroke, or null |
+| `clearedAt` | `number` | Unix timestamp (ms) of the last canvas clear |
+| `lastUpdate` | `number` | Unix timestamp (ms) of the last write |
+
+### Stroke type
+
+```typescript
+export interface Stroke {
+  tool: string;
+  color: string;
+  size: number;
+  points: { x: number; y: number }[];
+}
+```
+
+---
+
+## SecretWord
+
+**Path:** `rooms/{roomId}/secrets/word`
+
+Stored and deleted exclusively by the `/api/game` server route using the Admin SDK. Firestore rules block all client reads and writes on this path.
+
+| Field | Type | Description |
+|---|---|---|
+| `value` | `string` | The actual secret word |
+| `drawerId` | `string` | Player ID of the drawer who selected this word |
+| `mask` | `string` | Initial underscore mask of the word |
+
+<Warning>
+  Clients can never read this document. If you modify the Firestore rules to allow client reads on `secrets/**`, the word is exposed to all players before the round ends.
+</Warning>

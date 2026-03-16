@@ -1,0 +1,53 @@
+---
+title: "Gameplay overview"
+description: "How a round of Squiggle works from lobby to final scores."
+---
+
+Squiggle is a real-time multiplayer draw and guess game. One player draws a word while everyone else races to guess it in the chat. Each correct guess earns points — and so does drawing well. After all players have taken a turn drawing, one full round is complete. The game ends when all configured rounds are finished.
+
+## Game phases
+
+Every game moves through five phases in order:
+
+| Phase | What happens |
+|---|---|
+| `lobby` | Players join and the host configures settings. |
+| `choosing` | The active drawer sees word choices and picks one (15-second timer). |
+| `drawing` | The drawer draws; everyone else guesses in chat. |
+| `reveal` | The round ends and the correct word is shown to all players. |
+| `ended` | All rounds are complete; the final leaderboard is displayed. |
+
+## Phase flow
+
+<Steps>
+  <Step title="Lobby">
+    Players join using the room code. The host configures rounds, draw time, categories, and other settings. The game cannot start with fewer than 2 players.
+  </Step>
+  <Step title="Word selection">
+    The game transitions to the `choosing` phase. The active drawer is presented with a set of word choices (default: 3). They have **15 seconds** to pick one. If the timer expires without a selection, a word is chosen automatically.
+  </Step>
+  <Step title="Drawing">
+    The `drawing` phase begins. The drawer sees the full word and uses the canvas tools to illustrate it. Everyone else sees only a masked version (underscores) and types guesses into the chat. The phase lasts for the configured draw time (default: 80 seconds). Letter hints are progressively revealed at set intervals.
+  </Step>
+  <Step title="Reveal">
+    When time runs out or all guessers have guessed correctly, the phase moves to `reveal`. The correct word is shown to all players for 5 seconds before the next turn begins.
+  </Step>
+  <Step title="Repeat or end">
+    The next player in the turn order becomes the drawer and the cycle repeats from **Word selection**. Once every player has drawn once, one full round is complete. After all configured rounds finish, the game moves to the `ended` phase showing the final leaderboard.
+  </Step>
+</Steps>
+
+## Turn order and rounds
+
+- **Turn order** is shuffled randomly when the host starts the game and stays fixed for the entire session.
+- **One round** = every player draws once.
+- The number of rounds is set by the host before the game starts (default: 3, max: 10).
+- If a player disconnects mid-game, their turn is skipped but the fixed order is preserved for remaining players.
+
+## End of game
+
+When the final round ends, the game moves to the `ended` phase. All players see the final leaderboard ranked by total score. The host can start a new game from this screen, which returns everyone to the lobby with scores reset to zero.
+
+<Note>
+Scores are reset to 0 at the start of every new game. Streaks are also reset.
+</Note>

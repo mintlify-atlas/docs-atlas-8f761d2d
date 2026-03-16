@@ -1,0 +1,69 @@
+---
+title: "Creating and joining a room"
+description: "How to start a new room or join a friend's game."
+---
+
+Every Squiggle game takes place in a private room identified by a unique 6-character code. You can either create a new room or join one that a friend has already created.
+
+## Before you start
+
+You need a name to play. The home page also lets you choose an avatar before entering a room.
+
+<Steps>
+  <Step title="Go to the home page">
+    Open Squiggle in your browser. You'll see the main lobby screen with fields for your name and avatar.
+  </Step>
+  <Step title="Enter your name">
+    Type a display name (up to 15 characters) in the **Your Name** field. This name is visible to all other players in the room.
+  </Step>
+  <Step title="Choose an avatar">
+    Your avatar is generated automatically. Click **Randomize** to cycle through different avatars until you find one you like.
+  </Step>
+  <Step title="Create or join a room">
+    - To start a new game, click **Create Private Room**.
+    - To join an existing game, enter the 6-character room code in the join field and click the play button (or press Enter).
+  </Step>
+</Steps>
+
+## Creating a room
+
+Clicking **Create Private Room** generates a new 6-character room ID (uppercase letters and digits, e.g. `A3Z9KW`) and navigates you directly into the room. You become the **host** of that room.
+
+The room code appears in the browser URL (`/room/XXXXXX`) and is also displayed on the lobby screen. Share it with friends so they can join.
+
+```
+https://yourdomain.com/room/A3Z9KW
+                              ^^^^^^ room code
+```
+
+<Tip>
+You can share the full URL directly — players who open it are taken straight to the join screen with the room code pre-filled.
+</Tip>
+
+## Joining a room
+
+Enter the 6-character room code (case-insensitive — it is automatically uppercased) in the join field and click the play button. You are taken into the room as a regular player.
+
+## Player limits
+
+| Setting | Default | Range |
+|---|---|---|
+| Max players | 8 | 2 – 80 |
+
+The host can change the maximum player count in the room settings before the game starts. If you try to join a room that has already reached its limit, you will see the error:
+
+```
+Room is full
+```
+
+<Warning>
+Settings can only be changed while the game is in the **lobby** phase. Once the game starts, the room settings are locked.
+</Warning>
+
+## Host vs. player
+
+The first person to create the room is the **host**. Hosts have access to room settings and the controls needed to start the game. All other players who join are regular players.
+
+<Note>
+If you refresh the page or reconnect, your player ID is preserved via `sessionStorage` and you rejoin your existing session automatically.
+</Note>

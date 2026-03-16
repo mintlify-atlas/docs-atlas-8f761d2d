@@ -1,0 +1,71 @@
+---
+title: "Guessing"
+description: "How to guess the word and win points."
+---
+
+When another player is drawing, your goal is to figure out the word and type it in the chat as fast as possible. Guessing correctly earlier earns more points.
+
+## Submitting a guess
+
+Type your guess into the chat input at the bottom of the screen and press Enter or click the send button. Guesses are validated server-side — the word is never stored or compared on the client.
+
+<Note>
+The chat input shows the placeholder **"Type your guess..."** during the drawing phase to remind you that your messages are evaluated as guesses.
+</Note>
+
+## The word mask
+
+While a round is active you see a masked version of the word instead of the word itself. Non-letter characters (spaces, hyphens) are preserved; each letter is replaced with an underscore:
+
+```
+_ _ _ _ _ _ _ _ _ _       (elephant)
+_ _ _ _ _ _   _ _ _ _     (eiffel tower)
+```
+
+The mask updates as hint letters are revealed over time.
+
+## Hints
+
+The game reveals random letters from the word at regular intervals:
+
+- **Hints** — total number of hints revealed per round (default: 2, configurable 0–5).
+- **Hint interval** — seconds between each hint (default: every 20 seconds).
+
+Each hint replaces one underscore with the actual letter at a random unrevealed position. All players see the updated mask simultaneously.
+
+```
+_ _ _ _ _ _ _ _ _ _    (0:00 — no hints)
+_ _ e _ _ _ _ _ _ _    (0:20 — first hint)
+_ _ e _ _ _ _ n _ _    (0:40 — second hint)
+```
+
+<Info>
+Hints are revealed by the server and broadcast to all players at the same time. There is no way to get hints earlier.
+</Info>
+
+## Correct guesses
+
+When your guess matches the word (case-insensitive):
+
+- A celebration banner appears in the chat with your name, your guess order, and points earned.
+- A chime sound plays for all players.
+- You can now see the full word at the top of the screen.
+- Your score is updated immediately.
+
+After guessing correctly, the chat input becomes a regular chat box — your messages are sent with the label **"Guessed!"** and are only visible to other players who have also guessed correctly. Players who haven't guessed yet do not see post-guess chat messages.
+
+## Wrong guesses
+
+Wrong guesses appear in the chat as normal messages, visible to all players who have not yet guessed correctly. There is no penalty for guessing wrong.
+
+<Tip>
+Pay attention to other players' wrong guesses — they can help you rule out incorrect answers.
+</Tip>
+
+## After the round
+
+When time expires or everyone has guessed, the round moves to the **reveal** phase. The correct word is shown to all players for 5 seconds before the next turn begins.
+
+## Vote to skip
+
+If the round seems stuck, you can vote to skip the current drawer. If enough players vote, the round ends early and proceeds to the reveal phase. Use this if the drawer appears to be away or the word seems impossible.

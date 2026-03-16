@@ -1,0 +1,137 @@
+---
+title: "Word bank security"
+description: "How Squiggle keeps the word bank hidden from players."
+---
+
+Squiggle is designed so that no player can cheat by reading the word before it is drawn. This page explains the full security model, from how words are stored to how they reach (and don't reach) the client.
+
+## The security model at a glance
+
+1. Words live in Firestore under `wordBank/{category}`, seeded by the Admin SDK.
+2. Firestore rules deny all client reads on `wordBank/**` — the collection is invisible to browsers.
+3. The client bundle contains zero words. Only a `getWordMask` utility is shipped to the client.
+4. When a drawer picks a word, it is sent to the `/api/game` server route, never written to a client-readable Firestore path.
+5. The server stores the active word in `rooms/{roomId}/secrets/word` (Admin SDK only) and in an in-memory `Map`.
+6. Every client receives only the word mask — underscores where hidden letters are.
+7. After guessing correctly, a player can call `getWord`, but the server checks `hasGuessed` before responding.
+
+## Word storage
+
+### Seeding words into Firestore
+
+Words are pushed to Firestore with `npm run seed`, which runs `scripts/seed-words.ts` using the Admin SDK. Each category becomes a document at `wordBank/{category}` containing an array of `{ word, difficulty }` objects.
+
+```typescript
+const WORD_BANK: Record<string, { word: string; difficulty: string }[]> = {
+  Animals: [
+    { word: "dog", difficulty: "easy" },
+    { word: "elephant", difficulty: "medium" },
+    { word: "kangaroo", difficulty: "hard" },
+  ],
+  Food: [
+    { word: "apple", difficulty: "easy" },
+    { word: "croissant", difficulty: "hard" },
+  ],
+};
+
+await db.doc(`wordBank/${category}`).set({ words });
+```
+
+The seed script is gitignored (`scripts/seed-words.ts`). Only the example template is committed. Your actual word list never enters version control.
+
+### Firestore rules for `wordBank` and `secrets`
+
+```javascript
+// Word bank is seeded via admin SDK — clients must never read it
+match /wordBank/{category} {
+  allow read: if false;
+  allow write: if false;
+}
+
+match /rooms/{roomId} {
+  // ...
+  match /secrets/{secretId} {
+    allow read: if false;
+    allow write: if false;
+  }
+}
+```
+
+Both collections are fully blocked for clients. The Admin SDK bypasses these rules, so the seed script and the API route can still read and write them.
+
+## What the client bundle contains
+
+The only word-related code in `lib/words.ts` is:
+
+```typescript
+// Only safe, non-secret utilities live here — this file is bundled client-side.
+
+export function getWordMask(word: string): string {
+  return word.replace(/[a-zA-Z]/g, '_');
+}
+```
+
+`getWordMask` converts a word to underscores, preserving spaces and non-letter characters:
+
+| Input | Output |
+|---|---|
+| `elephant` | `________` |
+| `hot dog` | `___ ___` |
+| `T-rex` | `_-___` |
+
+This utility is called on the server when a word is selected, and the resulting mask is what every client sees in `currentRound.wordMask`.
+
+## Word flow during a round
+
+### 1. Drawer selects a word
+
+The drawer sees a list of word choices (already masked into underscores for everyone else). When they pick one, the client calls `POST /api/game` with `action: selectWord`:
+
+```typescript
+await fetch('/api/game', {
+  method: 'POST',
+  body: JSON.stringify({ action: 'selectWord', roomId, word, drawerId }),
+});
+```
+
+The server:
+- Stores `{ word, drawerId, mask }` in `rooms/{roomId}/secrets/word` via Admin SDK
+- Puts the word in the in-memory `wordStore` Map
+- Updates `rooms/{roomId}` with `phase: 'drawing'` and `currentRound.wordMask` (underscores only)
+- Clears the canvas
+
+The actual word never appears in any client-readable Firestore path.
+
+### 2. Guessers receive only the mask
+
+All clients receive `currentRound.wordMask` via Firestore's real-time listener. They see underscores. Progressive hints reveal one random letter at a time by updating the mask server-side.
+
+### 3. A player guesses
+
+Guesses are sent to `POST /api/game` with `action: guess`. The server compares the guess against the word in its memory (or rehydrates from `secrets/word` after a cold start). The client never receives the correct word in the response — only `{ correct: true, points, guessOrder }` or `{ correct: false }`.
+
+If the guess is correct, the server:
+- Writes the correct-guess chat message with `isCorrect: true` (Admin SDK — clients cannot write `isCorrect: true` directly due to Firestore rules)
+- Updates the player's score, streak, and `hasGuessed` flag
+- Awards the drawer +50 points
+
+### 4. Round ends
+
+When the round timer expires, the host client calls `endRound`, which hits `POST /api/game` with `action: endRound`. The server:
+- Deletes the word from `wordStore` and from `rooms/{roomId}/secrets/word`
+- Sets `phase: 'reveal'` and writes `reveal: { word }` to the room document (the word is now publicly visible for 5 seconds during the reveal phase)
+
+### 5. Post-round word lookup
+
+After correctly guessing, a player can call `getWord` to see the word during the reveal phase. The server checks `hasGuessed` in Firestore before responding:
+
+```typescript
+if (entry.drawerId !== playerId) {
+  const playerSnap = await db.doc(`rooms/${roomId}/players/${playerId}`).get();
+  if (!playerSnap.exists || !playerSnap.data()!.hasGuessed) {
+    return NextResponse.json({ error: 'not the drawer' }, { status: 403 });
+  }
+}
+```
+
+A player who never guessed correctly receives a 403 until the round ends and the word appears in `reveal.word`.

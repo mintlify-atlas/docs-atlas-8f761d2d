@@ -1,0 +1,255 @@
+---
+title: "API routes"
+description: "Internal server-side API endpoints used by Squiggle."
+---
+
+<Note>
+  This API is internal. It is called by the Squiggle game client, not intended as a public API. All requests are `POST` with a JSON body containing an `action` field.
+</Note>
+
+## `POST /api/game`
+
+All game server logic is handled by a single route. The `action` field in the request body determines which operation runs.
+
+---
+
+### `getWordChoices`
+
+Fetches a random selection of words from the Firestore word bank. Called by the host client when transitioning to the `choosing` phase.
+
+**Request body**
+
+<ParamField body="action" type="string" required>
+  Must be `"getWordChoices"`.
+</ParamField>
+
+<ParamField body="categories" type="string[]">
+  Word bank categories to draw from. Defaults to `['Animals', 'Food', 'Objects']` if empty.
+</ParamField>
+
+<ParamField body="customWords" type="string">
+  Comma-separated custom words to add to the pool.
+</ParamField>
+
+<ParamField body="wordCount" type="number">
+  How many word choices to return. Defaults to `3`.
+</ParamField>
+
+**Response**
+
+```json
+{ "choices": ["elephant", "pizza", "kangaroo"] }
+```
+
+---
+
+### `selectWord`
+
+Called when the drawer picks a word. Stores the word server-side, transitions the room to `drawing` phase, and clears the canvas.
+
+**Request body**
+
+<ParamField body="action" type="string" required>
+  Must be `"selectWord"`.
+</ParamField>
+
+<ParamField body="roomId" type="string" required>
+  The room ID.
+</ParamField>
+
+<ParamField body="word" type="string" required>
+  The word the drawer selected.
+</ParamField>
+
+<ParamField body="drawerId" type="string" required>
+  Player ID of the drawer.
+</ParamField>
+
+<ParamField body="drawTime" type="number">
+  Draw time limit in seconds. Defaults to `80`.
+</ParamField>
+
+**Response**
+
+```json
+{ "ok": true, "mask": "________" }
+```
+
+**Side effects**
+- Writes `{ value, drawerId, mask }` to `rooms/{roomId}/secrets/word` via Admin SDK
+- Sets `rooms/{roomId}.phase` to `"drawing"`
+- Updates `currentRound.wordMask`, `currentRound.wordLength`, `currentRound.startedAt`, `currentRound.timeLimit`
+- Clears `rooms/{roomId}/canvas/main`
+
+---
+
+### `guess`
+
+Validates a player's guess against the active word. If correct, writes the correct-guess chat message, updates the player's score and streak, and awards the drawer a bonus.
+
+**Request body**
+
+<ParamField body="action" type="string" required>
+  Must be `"guess"`.
+</ParamField>
+
+<ParamField body="roomId" type="string" required>
+  The room ID.
+</ParamField>
+
+<ParamField body="playerId" type="string" required>
+  Player ID of the guesser.
+</ParamField>
+
+<ParamField body="playerName" type="string" required>
+  Display name of the guesser.
+</ParamField>
+
+<ParamField body="guess" type="string" required>
+  The guessed word.
+</ParamField>
+
+<ParamField body="roundStartedAt" type="number">
+  Unix timestamp (ms) of when the current round started. Used to compute elapsed seconds for the chat message.
+</ParamField>
+
+**Response — correct guess**
+
+```json
+{ "correct": true, "points": 500, "guessOrder": 1 }
+```
+
+**Response — wrong guess**
+
+```json
+{ "correct": false }
+```
+
+**Response — already guessed or no active word**
+
+```json
+{ "correct": false, "reason": "already guessed" }
+```
+
+**Side effects on correct guess**
+- Writes a chat message with `isCorrect: true`, `pointsEarned`, and `guessOrder` via Admin SDK
+- Updates `players/{playerId}` — sets `hasGuessed: true`, increments `score` and `streak`
+- Increments `currentRound.guessCount`
+- Awards the drawer +50 points
+
+---
+
+### `revealHint`
+
+Reveals one additional random letter in the word mask. Idempotent — if `hintIndex` is less than or equal to the number of hints already revealed, returns the current mask without modification.
+
+**Request body**
+
+<ParamField body="action" type="string" required>
+  Must be `"revealHint"`.
+</ParamField>
+
+<ParamField body="roomId" type="string" required>
+  The room ID.
+</ParamField>
+
+<ParamField body="hintIndex" type="number">
+  Which hint this is (1-indexed). Used to prevent double-revealing if the host client re-sends the request.
+</ParamField>
+
+**Response**
+
+```json
+{ "mask": "e_e_____" }
+```
+
+**Side effects**
+- Updates `currentRound.wordMask` in the room document
+- Updates `currentMask` and `hintsRevealed` in the in-memory word store
+
+---
+
+### `endRound`
+
+Ends the current drawing round. Deletes the word from memory and Firestore, then transitions the room to `reveal` phase.
+
+**Request body**
+
+<ParamField body="action" type="string" required>
+  Must be `"endRound"`.
+</ParamField>
+
+<ParamField body="roomId" type="string" required>
+  The room ID.
+</ParamField>
+
+**Response**
+
+```json
+{ "ok": true, "word": "elephant" }
+```
+
+**Side effects**
+- Deletes the entry from the in-memory `wordStore` Map
+- Deletes `rooms/{roomId}/secrets/word`
+- Sets `rooms/{roomId}.phase` to `"reveal"`
+- Sets `rooms/{roomId}.reveal.word` to the actual word
+- Sets `currentRound.timeLimit` to `5` (reveal phase duration)
+
+---
+
+### `getWord`
+
+Returns the actual word. Only accessible to the drawer or players who have already guessed correctly.
+
+**Request body**
+
+<ParamField body="action" type="string" required>
+  Must be `"getWord"`.
+</ParamField>
+
+<ParamField body="roomId" type="string" required>
+  The room ID.
+</ParamField>
+
+<ParamField body="playerId" type="string" required>
+  Player ID of the requesting player.
+</ParamField>
+
+**Response — authorized (drawer or has guessed)**
+
+```json
+{ "word": "elephant" }
+```
+
+**Response — unauthorized (403)**
+
+```json
+{ "error": "not the drawer" }
+```
+
+---
+
+### `deleteRoom`
+
+Recursively deletes a room and all of its subcollections (players, chat, canvas, secrets).
+
+**Request body**
+
+<ParamField body="action" type="string" required>
+  Must be `"deleteRoom"`.
+</ParamField>
+
+<ParamField body="roomId" type="string" required>
+  The room ID to delete.
+</ParamField>
+
+**Response**
+
+```json
+{ "ok": true }
+```
+
+**Side effects**
+- Calls `db.recursiveDelete` on the room document, removing all subcollections
+- Removes the room's entry from the in-memory `wordStore` Map

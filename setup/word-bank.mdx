@@ -1,0 +1,134 @@
+---
+title: "Word bank"
+description: "Seed the Firestore word bank with your own words."
+---
+
+Squiggle's word bank lives entirely in Firestore under `wordBank/{category}`. Firestore security rules block all client reads on that collection — the client bundle contains zero words.
+
+<Note>
+  Custom words per room (set in Host Controls) are separate from the seeded word bank. Custom words are entered by the host at game time and stored transiently in the room document, not in `wordBank`.
+</Note>
+
+## Set up the seed script
+
+<Steps>
+  <Step title="Copy the example seed file">
+    The repository ships an example seed script. Copy it to `scripts/seed-words.ts` — this path is gitignored so your actual word list stays private.
+
+    ```bash
+    cp scripts/seed-words.example.ts scripts/seed-words.ts
+    ```
+  </Step>
+
+  <Step title="Edit your word list">
+    Open `scripts/seed-words.ts` and fill in the `WORD_BANK` object. Each key is a category name and maps to an array of `{ word, difficulty }` entries.
+
+    Supported difficulties: `"easy"`, `"medium"`, `"hard"`, and `"custom"` (for custom words). The default categories used by the game are **Animals**, **Food**, and **Objects**, but you can add or rename any categories you like — just add a new key to `WORD_BANK`.
+
+    ```typescript
+    const WORD_BANK: Record<string, { word: string; difficulty: string }[]> = {
+      Animals: [
+        { word: "dog",      difficulty: "easy"   },
+        { word: "elephant", difficulty: "medium" },
+        { word: "kangaroo", difficulty: "hard"   },
+      ],
+      Food: [
+        { word: "pizza",     difficulty: "easy" },
+        { word: "croissant", difficulty: "hard" },
+      ],
+      // Add more categories here...
+    };
+    ```
+  </Step>
+
+  <Step title="Run the seed script">
+    Push your words to Firestore with:
+
+    ```bash
+    npm run seed
+    ```
+
+    The script reads your `FIREBASE_ADMIN_*` values from `.env.local`, connects to Firestore via the Admin SDK, and writes each category as a document at `wordBank/{category}`.
+
+    You should see output like:
+
+    ```
+    ✓ Seeded Animals (3 words)
+    ✓ Seeded Food (2 words)
+
+    Done! Word bank is now stored in Firestore under wordBank/{category}.
+    Make sure your Firestore rules deny client reads on /wordBank/**
+    ```
+  </Step>
+</Steps>
+
+## Full example seed file
+
+This is the complete contents of `scripts/seed-words.example.ts`:
+
+```typescript
+/**
+ * Example seed script — copy this to scripts/seed-words.ts and fill in your own words.
+ * Pushes the word bank to Firestore under wordBank/{category}.
+ * Words are stored server-side only; clients never have access to this collection.
+ *
+ * Usage:
+ *   npm run seed
+ *
+ * Requires FIREBASE_ADMIN_* env vars (same as .env.local).
+ */
+import * as dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+
+if (!getApps().length) {
+  initializeApp({
+    credential: cert({
+      projectId:   process.env.FIREBASE_ADMIN_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
+      privateKey:  process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    }),
+  });
+}
+
+// Add as many categories and words as you like.
+// difficulty: "easy" | "medium" | "hard"
+const WORD_BANK: Record<string, { word: string; difficulty: string }[]> = {
+  Animals: [
+    { word: "dog",      difficulty: "easy"   },
+    { word: "cat",      difficulty: "easy"   },
+    { word: "elephant", difficulty: "medium" },
+    { word: "giraffe",  difficulty: "medium" },
+    { word: "kangaroo", difficulty: "hard"   },
+  ],
+  Food: [
+    { word: "apple",     difficulty: "easy"   },
+    { word: "pizza",     difficulty: "easy"   },
+    { word: "sushi",     difficulty: "medium" },
+    { word: "croissant", difficulty: "hard"   },
+  ],
+  // Add more categories here...
+};
+
+async function seed() {
+  const db = getFirestore();
+  const categories = Object.keys(WORD_BANK);
+
+  for (const category of categories) {
+    const words = WORD_BANK[category];
+    await db.doc(`wordBank/${category}`).set({ words });
+    console.log(`✓ Seeded ${category} (${words.length} words)`);
+  }
+
+  console.log('\nDone! Word bank is now stored in Firestore under wordBank/{category}.');
+  console.log('Make sure your Firestore rules deny client reads on /wordBank/**');
+}
+
+seed().catch(err => { console.error(err); process.exit(1); });
+```
+
+## Updating words
+
+To update the word bank, edit `scripts/seed-words.ts` and re-run `npm run seed`. Each run overwrites the existing documents for the categories you seed.

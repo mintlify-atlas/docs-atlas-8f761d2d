@@ -1,0 +1,83 @@
+---
+title: "Configuration reference"
+description: "All configurable settings and default values for Squiggle."
+---
+
+## Room settings defaults
+
+When a new room is created, the following defaults are applied in `lib/gameLogic.ts`:
+
+| Setting | Default | Description |
+|---|---|---|
+| `rounds` | `3` | Number of full rounds to play |
+| `drawTime` | `80` | Seconds per drawing turn |
+| `hints` | `2` | Hint letters revealed during a turn |
+| `hintInterval` | `20` | Seconds between hint reveals |
+| `wordCount` | `3` | Word choices shown to the drawer |
+| `maxPlayers` | `8` | Maximum players allowed in the room |
+| `categories` | `['Animals', 'Food', 'Objects']` | Word bank categories to draw from |
+| `customWords` | `''` | Comma-separated custom words (empty by default) |
+
+The host can change all of these settings in the lobby before the game starts. Settings are stored in `rooms/{roomId}.settings` in Firestore.
+
+## Scoring constants
+
+Scoring is defined in `app/api/game/route.ts` and cannot be changed via room settings.
+
+### Guess scores
+
+Points awarded to the guesser depend on the order in which they guessed correctly:
+
+```typescript
+const GUESS_SCORES = [500, 400, 350, 300, 250, 200, 175, 150, 125, 100];
+```
+
+| Guess order | Points |
+|---|---|
+| 1st | 500 |
+| 2nd | 400 |
+| 3rd | 350 |
+| 4th | 300 |
+| 5th | 250 |
+| 6th | 200 |
+| 7th | 175 |
+| 8th | 150 |
+| 9th | 125 |
+| 10th and beyond | 100 |
+
+### Drawer bonus
+
+The drawer earns **+50 points** for every player who guesses correctly during their turn.
+
+## Phase timing
+
+| Phase | Duration | Source |
+|---|---|---|
+| Word selection (`choosing`) | 15 seconds | Hard-coded in `lib/gameLogic.ts` |
+| Drawing (`drawing`) | `settings.drawTime` (default 80s) | Configurable per room |
+| Reveal (`reveal`) | 5 seconds | Hard-coded in `app/api/game/route.ts` |
+
+## Environment variables
+
+Squiggle reads configuration from environment variables at runtime. See [Environment variables](/setup/environment-variables) for the complete reference.
+
+**Summary:**
+
+| Variable | Scope | Description |
+|---|---|---|
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | Client + Server | Firebase web API key |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Client + Server | Firebase auth domain |
+| `NEXT_PUBLIC_FIREBASE_DATABASE_URL` | Client + Server | Firebase Realtime Database URL |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Client + Server | Firebase project ID |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Client + Server | Firebase storage bucket |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Client + Server | Firebase messaging sender ID |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | Client + Server | Firebase app ID |
+| `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` | Client + Server | Firebase Analytics measurement ID |
+| `NEXT_PUBLIC_FIREBASE_FIRESTORE_DB` | Client + Server | Custom Firestore database ID (leave blank for default) |
+| `FIREBASE_ADMIN_PROJECT_ID` | Server only | Admin SDK project ID |
+| `FIREBASE_ADMIN_CLIENT_EMAIL` | Server only | Admin SDK service account email |
+| `FIREBASE_ADMIN_PRIVATE_KEY` | Server only | Admin SDK private key |
+
+<Warning>
+  Never expose `FIREBASE_ADMIN_*` variables to the browser. These must be server-only secrets. Do not prefix them with `NEXT_PUBLIC_`.
+</Warning>

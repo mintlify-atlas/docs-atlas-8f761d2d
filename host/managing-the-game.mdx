@@ -1,0 +1,79 @@
+---
+title: "Managing the game"
+description: "What hosts can do during an active game."
+---
+
+As the host you start the game, monitor the session, and can kick things off again once it ends. Most of the game runs automatically, but there are a few situations where host intervention matters.
+
+## Starting the game
+
+From the lobby, click **Start Game** in the Host Settings panel. The button is disabled until at least 2 players are in the room.
+
+When you start:
+
+1. All player scores and streaks are reset to 0.
+2. The turn order is shuffled randomly and fixed for the entire session.
+3. The first drawer is selected and the game moves to the `choosing` phase.
+
+<Warning>
+You cannot change room settings after clicking **Start Game**. If you need to change something, you'll need to wait until the game ends and start a new one.
+</Warning>
+
+## Turn order
+
+Turn order is determined by a random shuffle at game start. The same order is used for every round. You can see whose turn it is from the player list.
+
+If a player disconnects or leaves mid-game, they are skipped in the turn order for that and subsequent turns. The remaining players continue in the same fixed order.
+
+## Ending rounds early
+
+A round ends automatically when any of the following happen:
+
+- The draw timer expires.
+- All non-drawer players have guessed correctly.
+- A vote to skip reaches the required threshold.
+
+You do not need to manually end rounds under normal circumstances.
+
+## Vote to skip
+
+Any player (including the host) can vote to skip the current drawer's turn. Votes are tallied in real time. Once enough players vote, the round ends immediately and moves to the `reveal` phase showing the correct word.
+
+<Info>
+Vote counts reset automatically at the start of each new turn.
+</Info>
+
+## Player disconnections
+
+If a player leaves mid-game:
+
+- Their `connected` status is updated in the room.
+- Their position in the turn order is skipped when their turn comes up.
+- Their score remains visible on the leaderboard for the duration of the session.
+
+## End of game
+
+After all rounds complete, the game transitions to the `ended` phase automatically. The final leaderboard is shown to all players ranked by total score.
+
+## Starting a new game
+
+From the `ended` screen, you can start a new game. This returns all players to the lobby with:
+
+- Scores reset to 0
+- Streaks reset to 0
+- Settings preserved from the previous session (you can change them before starting again)
+
+<Steps>
+  <Step title="Game ends">
+    The last round completes and all players see the final leaderboard on the `ended` screen.
+  </Step>
+  <Step title="Start a new game">
+    As the host, click **Start Game** (or equivalent new-game button) to return to the lobby phase.
+  </Step>
+  <Step title="Adjust settings (optional)">
+    Update rounds, draw time, categories, or any other settings while in the lobby.
+  </Step>
+  <Step title="Start again">
+    Click **Start Game** when at least 2 players are ready.
+  </Step>
+</Steps>

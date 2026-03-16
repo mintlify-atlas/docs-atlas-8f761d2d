@@ -1,0 +1,73 @@
+---
+title: "Project structure"
+description: "Overview of the Squiggle codebase and how the pieces fit together."
+---
+
+## Directory layout
+
+```
+app/
+├── api/game/route.ts       server-side logic (word validation, scoring, hints)
+├── room/[roomId]/page.tsx  game room
+└── page.tsx                landing page
+
+components/
+├── Canvas.tsx              drawing canvas
+├── Chat.tsx                chat + guess input
+├── HostControls.tsx        lobby settings
+├── FloatingEmojis.tsx      emoji reactions
+└── RoomDoodles.tsx         decorative background
+
+lib/
+├── firebase.ts             client Firestore instance
+├── firebaseAdmin.ts        Admin SDK init
+├── gameLogic.ts            room creation, turns, chat
+├── words.ts                getWordMask utility only
+├── sounds.ts               web audio sound effects
+├── store.ts                session storage helpers
+└── types.ts                shared TypeScript types
+
+scripts/
+├── seed-words.example.ts   template — copy and fill in your words
+└── seed-words.ts           your actual word bank (gitignored)
+```
+
+## Architecture
+
+Squiggle has two distinct runtime environments: the browser and the Next.js server.
+
+### Browser ↔ Firestore (real-time sync)
+
+All live game state — canvas strokes, chat messages, player scores, room phase — is stored in Firestore and synced in real time to every connected client using Firestore's `onSnapshot` listeners.
+
+`lib/firebase.ts` initializes the client-side Firestore instance using the `NEXT_PUBLIC_FIREBASE_*` environment variables. This file is safe to include in the client bundle.
+
+### Browser → `/api/game` (word operations)
+
+Anything that involves the secret word is routed through the Next.js API route at `app/api/game/route.ts`. This route runs server-side only and is never included in the client bundle.
+
+The API route handles:
+- Fetching word choices from the Firestore word bank
+- Storing the selected word server-side
+- Validating guesses and computing scores
+- Revealing hint letters
+- Ending rounds and cleaning up word state
+
+### Admin SDK (server-side only)
+
+`lib/firebaseAdmin.ts` initializes the Firebase Admin SDK using the `FIREBASE_ADMIN_*` service account credentials. The Admin SDK bypasses Firestore security rules, which is what allows the server to read and write `wordBank/**` and `rooms/{roomId}/secrets/**` — collections that are fully blocked for clients.
+
+The Admin SDK is only imported by `app/api/game/route.ts`. It is never imported by any file that runs in the browser.
+
+### Word store
+
+The active word for each room is kept in two places:
+
+1. **In-memory `Map`** — `wordStore` in `app/api/game/route.ts`. This is the fast path used for every guess, hint, and round-end operation during normal play.
+2. **Firestore `rooms/{roomId}/secrets/word`** — Written by the Admin SDK when the drawer selects a word. Used to rehydrate the in-memory store after a cold start or server restart.
+
+Clients can never read either location. The Firestore rules deny all client reads on `rooms/{roomId}/secrets/**` and `wordBank/**`.
+
+### Session storage (`lib/store.ts`)
+
+Player identity (ID, name, avatar) is persisted in `sessionStorage`. There is no authentication — a player's identity lasts for the lifetime of the browser tab. Room IDs are generated client-side as 6-character alphanumeric strings.
